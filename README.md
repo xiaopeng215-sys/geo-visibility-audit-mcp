@@ -71,10 +71,13 @@ This repo also includes ready-to-import n8n workflows:
 
 - `workflows/weekly-geo-visibility-audit.n8n.json`
 - `workflows/support-triage-weekly-review.n8n.json`
+- `workflows/invoice-intake-review-queue.n8n.json`
 
 Use the GEO workflow to run weekly GEO readiness audits through the hosted Apify Actor and prepare a compact fix report for Slack, email, Notion, Airtable, Google Sheets, or a client update.
 
 Use the support triage workflow to analyze support tickets through the hosted Support Triage Intelligence Actor and prepare a human review queue with urgent escalations, reply drafts, FAQ candidates, and next actions.
+
+Use the invoice intake workflow to turn extracted invoice records into a finance review queue with missing-field checks, duplicate-risk flags, low-confidence OCR flags, and approval candidates.
 
 ## Accuracy Notes
 

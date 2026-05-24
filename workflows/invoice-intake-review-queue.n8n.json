@@ -1,0 +1,370 @@
+{
+  "name": "Invoice Intake Review Queue",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "weekly-schedule",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "invoices",
+              "name": "invoices",
+              "type": "array",
+              "value": [
+                {
+                  "id": "INV-1001",
+                  "vendorName": "Northstar Hosting",
+                  "vendorEmail": "billing@northstar.example",
+                  "invoiceNumber": "NH-2026-0421",
+                  "invoiceDate": "2026-05-20",
+                  "dueDate": "2026-06-19",
+                  "currency": "USD",
+                  "subtotal": 240,
+                  "tax": 0,
+                  "total": 240,
+                  "poNumber": "PO-8841",
+                  "category": "hosting",
+                  "attachmentName": "northstar-hosting-nh-2026-0421.pdf",
+                  "source": "email",
+                  "extractedTextConfidence": 0.94,
+                  "paymentStatus": "unpaid"
+                },
+                {
+                  "id": "INV-1002",
+                  "vendorName": "Northstar Hosting",
+                  "vendorEmail": "billing@northstar.example",
+                  "invoiceNumber": "NH-2026-0421",
+                  "invoiceDate": "2026-05-20",
+                  "dueDate": "2026-06-19",
+                  "currency": "USD",
+                  "subtotal": 240,
+                  "tax": 0,
+                  "total": 240,
+                  "poNumber": "PO-8841",
+                  "category": "hosting",
+                  "attachmentName": "northstar-hosting-copy.pdf",
+                  "source": "email",
+                  "extractedTextConfidence": 0.92,
+                  "paymentStatus": "unpaid"
+                },
+                {
+                  "id": "INV-1003",
+                  "vendorName": "",
+                  "vendorEmail": "receipts@design.example",
+                  "invoiceNumber": "",
+                  "invoiceDate": "2026-05-22",
+                  "dueDate": "",
+                  "currency": "USD",
+                  "subtotal": 89,
+                  "tax": 8.9,
+                  "total": 99.9,
+                  "poNumber": "",
+                  "category": "design tools",
+                  "attachmentName": "receipt-0522.png",
+                  "source": "upload",
+                  "extractedTextConfidence": 0.61,
+                  "paymentStatus": "unpaid"
+                }
+              ]
+            },
+            {
+              "id": "approval-threshold",
+              "name": "autoApproveBelow",
+              "type": "number",
+              "value": 50
+            },
+            {
+              "id": "currency",
+              "name": "defaultCurrency",
+              "type": "string",
+              "value": "USD"
+            },
+            {
+              "id": "review-owner",
+              "name": "reviewOwner",
+              "type": "string",
+              "value": "Finance Ops"
+            },
+            {
+              "id": "confidence-threshold",
+              "name": "lowConfidenceThreshold",
+              "type": "number",
+              "value": 0.8
+            },
+            {
+              "id": "duplicate-window",
+              "name": "duplicateWindowDays",
+              "type": "number",
+              "value": 45
+            }
+          ]
+        }
+      },
+      "id": "invoice-input",
+      "name": "Invoice Intake Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        540,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Replace the sample invoices with records from OCR, email parsing, form uploads, Google Drive, Dropbox, Airtable, or your accounting export. Do not include raw bank credentials or payment authorization data."
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\nconst invoices = Array.isArray(input.invoices) ? input.invoices : [];\nconst lowConfidenceThreshold = Number(input.lowConfidenceThreshold ?? 0.8);\nconst autoApproveBelow = Number(input.autoApproveBelow ?? 0);\n\nconst normalize = (value) => String(value ?? '').trim();\nconst lower = (value) => normalize(value).toLowerCase();\nconst amount = (value) => Number.isFinite(Number(value)) ? Number(value) : null;\nconst dateMs = (value) => {\n  const ms = Date.parse(value);\n  return Number.isFinite(ms) ? ms : null;\n};\nconst duplicateKey = (invoice) => [lower(invoice.vendorName), lower(invoice.invoiceNumber), amount(invoice.total), lower(invoice.currency)].join('|');\nconst seen = new Map();\nconst normalized = invoices.map((invoice, index) => {\n  const subtotal = amount(invoice.subtotal);\n  const tax = amount(invoice.tax) ?? 0;\n  const total = amount(invoice.total);\n  const confidence = amount(invoice.extractedTextConfidence);\n  const issues = [];\n  const warnings = [];\n  if (!normalize(invoice.vendorName)) issues.push('Missing vendor name');\n  if (!normalize(invoice.invoiceNumber)) issues.push('Missing invoice number');\n  if (!dateMs(invoice.invoiceDate)) issues.push('Missing or invalid invoice date');\n  if (!total || total <= 0) issues.push('Missing or invalid invoice total');\n  if (subtotal != null && total != null && Math.abs((subtotal + tax) - total) > 0.05) warnings.push('Subtotal plus tax does not match total');\n  if (confidence != null && confidence < lowConfidenceThreshold) issues.push('Low extraction confidence');\n  if (!normalize(invoice.poNumber)) warnings.push('Missing purchase order number');\n  if (!normalize(invoice.dueDate)) warnings.push('Missing due date');\n  const key = duplicateKey(invoice);\n  const duplicateOf = seen.get(key);\n  if (duplicateOf) issues.push('Possible duplicate invoice');\n  else seen.set(key, invoice.id || invoice.invoiceNumber || String(index + 1));\n  const riskScore = issues.length * 30 + warnings.length * 10 + (total && total > 1000 ? 20 : 0);\n  let reviewStatus = 'ready_for_review';\n  if (issues.length > 0) reviewStatus = 'needs_fix';\n  else if (total != null && total <= autoApproveBelow) reviewStatus = 'low_value_ready';\n  return {\n    ...invoice,\n    normalizedVendor: normalize(invoice.vendorName),\n    normalizedInvoiceNumber: normalize(invoice.invoiceNumber),\n    subtotal,\n    tax,\n    total,\n    confidence,\n    duplicateKey: key,\n    duplicateOf: duplicateOf || null,\n    issues,\n    warnings,\n    riskScore,\n    reviewStatus,\n    suggestedOwner: input.reviewOwner || 'Finance Ops'\n  };\n});\nreturn normalized.map((invoice) => ({ json: invoice }));"
+      },
+      "id": "validate-invoices",
+      "name": "Validate and Score Invoices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Normalizes invoice fields, checks required values, flags duplicates, detects low-confidence OCR/extraction, checks subtotal + tax against total, and assigns a review status."
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoices = $input.all().map((item) => item.json);\nconst needsFix = invoices.filter((invoice) => invoice.reviewStatus === 'needs_fix');\nconst duplicateRisk = invoices.filter((invoice) => invoice.issues?.includes('Possible duplicate invoice'));\nconst lowConfidence = invoices.filter((invoice) => invoice.issues?.includes('Low extraction confidence'));\nconst missingPo = invoices.filter((invoice) => invoice.warnings?.includes('Missing purchase order number'));\nconst ready = invoices.filter((invoice) => invoice.reviewStatus !== 'needs_fix');\nconst reviewQueue = invoices\n  .slice()\n  .sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0))\n  .map((invoice) => ({\n    id: invoice.id,\n    vendorName: invoice.vendorName || '(missing vendor)',\n    invoiceNumber: invoice.invoiceNumber || '(missing invoice number)',\n    total: invoice.total,\n    currency: invoice.currency,\n    dueDate: invoice.dueDate || null,\n    reviewStatus: invoice.reviewStatus,\n    riskScore: invoice.riskScore,\n    issues: invoice.issues,\n    warnings: invoice.warnings,\n    duplicateOf: invoice.duplicateOf,\n    suggestedOwner: invoice.suggestedOwner,\n    attachmentName: invoice.attachmentName\n  }));\nconst approvalCandidates = ready.filter((invoice) => invoice.reviewStatus === 'low_value_ready').map((invoice) => ({\n  id: invoice.id,\n  vendorName: invoice.vendorName,\n  invoiceNumber: invoice.invoiceNumber,\n  total: invoice.total,\n  currency: invoice.currency,\n  note: 'Low value and no blocking issues. Still requires finance policy approval before payment.'\n}));\nreturn [{ json: {\n  totalInvoices: invoices.length,\n  needsFixCount: needsFix.length,\n  duplicateRiskCount: duplicateRisk.length,\n  lowConfidenceCount: lowConfidence.length,\n  missingPoCount: missingPo.length,\n  readyCount: ready.length,\n  reviewQueue,\n  approvalCandidates,\n  duplicateRisk,\n  lowConfidence,\n  missingPo,\n  invoices\n} }];"
+      },
+      "id": "build-review-queue",
+      "name": "Build Finance Review Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Builds a sorted finance review queue and separates duplicate-risk, low-confidence, missing-PO, and low-value-ready items. This workflow does not approve or pay invoices."
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "report-title",
+              "name": "reportTitle",
+              "type": "string",
+              "value": "={{'Invoice Intake Review Queue - ' + $json.needsFixCount + ' need fixes of ' + $json.totalInvoices + ' invoices'}}"
+            },
+            {
+              "id": "report-summary",
+              "name": "reportSummary",
+              "type": "string",
+              "value": "={{'Reviewed ' + $json.totalInvoices + ' invoices. Needs fix: ' + $json.needsFixCount + '. Duplicate risk: ' + $json.duplicateRiskCount + '. Low confidence: ' + $json.lowConfidenceCount + '. Missing PO: ' + $json.missingPoCount + '.'}}"
+            },
+            {
+              "id": "review-queue",
+              "name": "reviewQueue",
+              "type": "array",
+              "value": "={{$json.reviewQueue}}"
+            },
+            {
+              "id": "approval-candidates",
+              "name": "approvalCandidates",
+              "type": "array",
+              "value": "={{$json.approvalCandidates}}"
+            },
+            {
+              "id": "duplicate-risk",
+              "name": "duplicateRisk",
+              "type": "array",
+              "value": "={{$json.duplicateRisk}}"
+            },
+            {
+              "id": "low-confidence",
+              "name": "lowConfidence",
+              "type": "array",
+              "value": "={{$json.lowConfidence}}"
+            },
+            {
+              "id": "missing-po",
+              "name": "missingPo",
+              "type": "array",
+              "value": "={{$json.missingPo}}"
+            }
+          ]
+        }
+      },
+      "id": "final-report",
+      "name": "Final Finance Review Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Final structured report. Connect this to Slack, email, Notion, Airtable, Google Sheets, ClickUp, or an accounting review dashboard after validating your finance policy."
+    },
+    {
+      "parameters": {
+        "content": "## Invoice Intake Review Queue\n\nUse this workflow after OCR, email parsing, or invoice upload steps. It turns extracted invoice records into a finance review queue with missing-field checks, duplicate-risk flags, low-confidence extraction flags, and approval candidates.",
+        "height": 240,
+        "width": 440
+      },
+      "id": "note-overview",
+      "name": "Overview Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        500,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Setup\n\n1. Replace sample invoices in **Invoice Intake Input**.\n2. Tune low-confidence and low-value thresholds.\n3. Run manually before activating the weekly schedule.\n4. Connect the final report to your review destination.",
+        "height": 220,
+        "width": 440
+      },
+      "id": "note-setup",
+      "name": "Setup Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Finance safety boundary\n\nThis workflow does not pay invoices, approve expenses, create accounting entries, or make tax decisions. It prepares a review queue so a human can verify documents, vendors, amounts, policies, and approvals.",
+        "height": 220,
+        "width": 440
+      },
+      "id": "note-safety",
+      "name": "Finance Safety Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Common integrations\n\nAdd Gmail, Outlook, Google Drive, Dropbox, Airtable, Notion, Google Sheets, Slack, ClickUp, QuickBooks, Xero, or your OCR/parser upstream or downstream depending on your stack.",
+        "height": 200,
+        "width": 440
+      },
+      "id": "note-integrations",
+      "name": "Integration Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Invoice Intake Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "Invoice Intake Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice Intake Input": {
+      "main": [
+        [
+          {
+            "node": "Validate and Score Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and Score Invoices": {
+      "main": [
+        [
+          {
+            "node": "Build Finance Review Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Finance Review Queue": {
+      "main": [
+        [
+          {
+            "node": "Final Finance Review Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "Finance"
+    },
+    {
+      "name": "Invoices"
+    },
+    {
+      "name": "Human Review"
+    }
+  ]
+}
