@@ -65,13 +65,16 @@ For URL fetching, batch audits, and marketplace billing, use the hosted Apify Ac
 
 https://apify.com/jumpy_invoice/geo-visibility-audit-intelligence
 
-## n8n Workflow
+## n8n Workflows
 
-This repo also includes a ready-to-import n8n workflow:
+This repo also includes ready-to-import n8n workflows:
 
-`workflows/weekly-geo-visibility-audit.n8n.json`
+- `workflows/weekly-geo-visibility-audit.n8n.json`
+- `workflows/support-triage-weekly-review.n8n.json`
 
-Use it to run weekly GEO readiness audits through the hosted Apify Actor and prepare a compact fix report for Slack, email, Notion, Airtable, Google Sheets, or a client update.
+Use the GEO workflow to run weekly GEO readiness audits through the hosted Apify Actor and prepare a compact fix report for Slack, email, Notion, Airtable, Google Sheets, or a client update.
+
+Use the support triage workflow to analyze support tickets through the hosted Support Triage Intelligence Actor and prepare a human review queue with urgent escalations, reply drafts, FAQ candidates, and next actions.
 
 ## Accuracy Notes
 

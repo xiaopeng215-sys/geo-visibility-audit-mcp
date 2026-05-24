@@ -1,0 +1,339 @@
+{
+  "name": "Weekly Support Triage Review with Apify",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "weekly-schedule",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tickets",
+              "name": "tickets",
+              "type": "array",
+              "value": [
+                {
+                  "id": "T-1001",
+                  "customerName": "Jordan Lee",
+                  "subject": "Charged twice and still cannot access my account",
+                  "message": "I was charged twice yesterday and the login link still says my account is disabled. This is blocking my team. Please fix this today or refund us.",
+                  "channel": "email",
+                  "customerTier": "business"
+                },
+                {
+                  "id": "T-1002",
+                  "customerName": "Mina",
+                  "subject": "How do I export invoices?",
+                  "message": "Where can I download all invoices for last quarter? I need them for accounting.",
+                  "channel": "chat",
+                  "customerTier": "starter"
+                }
+              ]
+            },
+            {
+              "id": "default-language",
+              "name": "defaultLanguage",
+              "type": "string",
+              "value": "English"
+            },
+            {
+              "id": "brand-voice",
+              "name": "brandVoice",
+              "type": "string",
+              "value": "calm, concise, and helpful"
+            },
+            {
+              "id": "business-context",
+              "name": "businessContext",
+              "type": "string",
+              "value": "SaaS support team handling billing, account access, onboarding, bugs, cancellations, and feature questions."
+            },
+            {
+              "id": "reply-signature",
+              "name": "replySignature",
+              "type": "string",
+              "value": "Support Team"
+            },
+            {
+              "id": "include-reply-draft",
+              "name": "includeReplyDraft",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "include-faq-candidates",
+              "name": "includeFaqCandidates",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        }
+      },
+      "id": "support-input",
+      "name": "Support Tickets Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        540,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Replace the sample tickets with records from Gmail, Zendesk, Help Scout, Intercom, a form, or a spreadsheet. Keep only the fields your team is comfortable sending to Apify."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{'https://api.apify.com/v2/acts/jumpy_invoice~support-triage-intelligence/run-sync-get-dataset-items?token=' + $env.APIFY_TOKEN}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "run-apify-actor",
+      "name": "Run Support Triage Actor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Calls the published Apify actor using APIFY_TOKEN from the n8n environment. The actor returns priority, category, sentiment, escalation guidance, draft replies, and FAQ candidates."
+    },
+    {
+      "parameters": {
+        "jsCode": "const analyses = Array.isArray($json) ? $json : [$json];\nconst tickets = analyses.filter(Boolean);\nconst totalTickets = tickets.length;\nconst urgentTickets = tickets.filter((ticket) => ticket.priority === 'urgent' || ticket.escalationRequired);\nconst negativeTickets = tickets.filter((ticket) => ticket.sentiment === 'negative');\nconst categories = tickets.reduce((counts, ticket) => {\n  const category = ticket.category || 'uncategorized';\n  counts[category] = (counts[category] || 0) + 1;\n  return counts;\n}, {});\nconst escalationQueue = urgentTickets.map((ticket) => ({\n  id: ticket.id,\n  customerName: ticket.customerName,\n  subject: ticket.subject,\n  priority: ticket.priority,\n  priorityScore: ticket.priorityScore,\n  category: ticket.category,\n  reason: ticket.escalationReason,\n  nextActions: ticket.nextActions || []\n}));\nconst replyReviewQueue = tickets.filter((ticket) => ticket.replyDraft).map((ticket) => ({\n  id: ticket.id,\n  subject: ticket.subject,\n  priority: ticket.priority,\n  category: ticket.category,\n  draftSubject: ticket.replyDraft.subject,\n  draftBody: ticket.replyDraft.body\n}));\nconst faqCandidates = tickets.filter((ticket) => ticket.faqCandidate).map((ticket) => ({\n  id: ticket.id,\n  question: ticket.faqCandidate.question,\n  answerOutline: ticket.faqCandidate.answerOutline,\n  reuseScore: ticket.faqCandidate.reuseScore\n}));\nconst topNextActions = tickets.flatMap((ticket) => ticket.nextActions || []).slice(0, 12);\nreturn [{ json: { totalTickets, urgentCount: urgentTickets.length, negativeCount: negativeTickets.length, categories, escalationQueue, replyReviewQueue, faqCandidates, topNextActions, tickets } }];"
+      },
+      "id": "prepare-review",
+      "name": "Prepare Human Review Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Builds escalationQueue, replyReviewQueue, faqCandidates, and topNextActions. This keeps the workflow human-in-the-loop instead of auto-sending replies."
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "report-title",
+              "name": "reportTitle",
+              "type": "string",
+              "value": "={{'Weekly Support Triage Review - ' + $json.urgentCount + ' urgent of ' + $json.totalTickets + ' tickets'}}"
+            },
+            {
+              "id": "report-summary",
+              "name": "reportSummary",
+              "type": "string",
+              "value": "={{'Analyzed ' + $json.totalTickets + ' tickets. Urgent/escalation: ' + $json.urgentCount + '. Negative sentiment: ' + $json.negativeCount + '. Top category: ' + Object.entries($json.categories).sort((a,b)=>b[1]-a[1])[0]?.[0]}}"
+            },
+            {
+              "id": "escalation-queue",
+              "name": "escalationQueue",
+              "type": "array",
+              "value": "={{$json.escalationQueue}}"
+            },
+            {
+              "id": "reply-review-queue",
+              "name": "replyReviewQueue",
+              "type": "array",
+              "value": "={{$json.replyReviewQueue}}"
+            },
+            {
+              "id": "faq-candidates",
+              "name": "faqCandidates",
+              "type": "array",
+              "value": "={{$json.faqCandidates}}"
+            },
+            {
+              "id": "top-next-actions",
+              "name": "topNextActions",
+              "type": "array",
+              "value": "={{$json.topNextActions}}"
+            }
+          ]
+        }
+      },
+      "id": "final-review-report",
+      "name": "Final Human Review Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1380,
+        320
+      ],
+      "notesInFlow": true,
+      "notes": "Final report object ready to route to Slack, email, ClickUp, Notion, Airtable, Google Sheets, or a support lead."
+    },
+    {
+      "parameters": {
+        "content": "## Weekly Support Triage Review\n\nUse this workflow to turn messy support tickets into a human review queue. It sends ticket records to the Apify Support Triage Intelligence actor, then produces escalation items, reply drafts for approval, FAQ candidates, and next actions.",
+        "height": 220,
+        "width": 420
+      },
+      "id": "note-overview",
+      "name": "Overview Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        500,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Setup\n\n1. Set `APIFY_TOKEN` in your n8n environment.\n2. Edit **Support Tickets Input** with your ticket records, brand voice, business context, and reply signature.\n3. Run manually once before activating the weekly schedule.",
+        "height": 220,
+        "width": 420
+      },
+      "id": "note-setup",
+      "name": "Setup Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Human review required\n\nThis template does not send customer replies automatically. Review draft replies before sending, especially for billing, refund, legal, security, angry-language, or account-access tickets.",
+        "height": 200,
+        "width": 420
+      },
+      "id": "note-human-review",
+      "name": "Human Review Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1070,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output routing\n\nThe final node returns a compact report object. Connect it to Slack, email, ClickUp, Notion, Airtable, Google Sheets, or a support lead dashboard after you verify the sample output.",
+        "height": 200,
+        "width": 420
+      },
+      "id": "note-output-routing",
+      "name": "Output Routing Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Support Tickets Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "Support Tickets Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Support Tickets Input": {
+      "main": [
+        [
+          {
+            "node": "Run Support Triage Actor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Support Triage Actor": {
+      "main": [
+        [
+          {
+            "node": "Prepare Human Review Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Human Review Queue": {
+      "main": [
+        [
+          {
+            "node": "Final Human Review Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "Support"
+    },
+    {
+      "name": "Apify"
+    },
+    {
+      "name": "Human Review"
+    }
+  ]
+}
