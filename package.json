@@ -2,7 +2,27 @@
   "name": "geo-visibility-audit-mcp",
   "version": "0.1.0",
   "description": "Standalone MCP server for auditing pasted HTML for GEO and AI-search visibility readiness.",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xiaopeng215-sys/geo-visibility-audit-mcp.git"
+  },
+  "homepage": "https://apify.com/jumpy_invoice/geo-visibility-audit-intelligence",
+  "bugs": {
+    "url": "https://github.com/xiaopeng215-sys/geo-visibility-audit-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "geo",
+    "ai-search",
+    "seo",
+    "chatgpt",
+    "perplexity",
+    "ai-overviews",
+    "content-audit",
+    "schema"
+  ],
   "bin": {
     "geo-visibility-audit-mcp": "src/server.js"
   },

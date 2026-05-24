@@ -4,14 +4,24 @@ Audit pasted HTML for GEO, AI-search visibility, entity clarity, answer readines
 
 This server is useful for marketers, SEO freelancers, SaaS founders, and content teams preparing pages for ChatGPT, Perplexity, Gemini, Claude, Google AI Overviews, and other AI-assisted discovery flows.
 
+It is built for teams seeing the new SEO pattern: rankings may still look healthy, but AI Overviews, answer engines, and zero-click search make visibility harder to explain. The server returns practical page-level fixes instead of a black-box score.
+
 ## Tools
 
 - `audit_geo_html`: audit one pasted HTML page.
 - `summarize_geo_audits`: summarize multiple GEO audit results.
 
-## Install
+## Run From GitHub
 
 ```bash
+npx -y github:xiaopeng215-sys/geo-visibility-audit-mcp
+```
+
+## Local Install
+
+```bash
+git clone https://github.com/xiaopeng215-sys/geo-visibility-audit-mcp.git
+cd geo-visibility-audit-mcp
 npm install
 ```
 
