@@ -1,0 +1,260 @@
+{
+  "name": "Weekly GEO Visibility Audit Report with Apify",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "weekly-schedule",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "brand-name",
+              "name": "brandName",
+              "type": "string",
+              "value": "Acme CRM"
+            },
+            {
+              "id": "website",
+              "name": "website",
+              "type": "string",
+              "value": "https://example.com"
+            },
+            {
+              "id": "category",
+              "name": "category",
+              "type": "string",
+              "value": "CRM for small agencies"
+            },
+            {
+              "id": "competitors",
+              "name": "competitors",
+              "type": "array",
+              "value": [
+                "HubSpot",
+                "Pipedrive"
+              ]
+            },
+            {
+              "id": "buyer-prompts",
+              "name": "buyerPrompts",
+              "type": "array",
+              "value": [
+                "best CRM for small marketing agencies",
+                "HubSpot alternatives for agencies",
+                "CRM with client reporting"
+              ]
+            },
+            {
+              "id": "page-urls",
+              "name": "pageUrls",
+              "type": "array",
+              "value": [
+                "https://example.com/",
+                "https://example.com/features",
+                "https://example.com/pricing"
+              ]
+            },
+            {
+              "id": "target-audience",
+              "name": "targetAudience",
+              "type": "string",
+              "value": "small marketing agencies"
+            },
+            {
+              "id": "include-rewrites",
+              "name": "includeRewriteSuggestions",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        }
+      },
+      "id": "audit-input",
+      "name": "Audit Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        540,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{'https://api.apify.com/v2/acts/jumpy_invoice~geo-visibility-audit-intelligence/run-sync-get-dataset-items?token=' + $env.APIFY_TOKEN}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "run-apify-actor",
+      "name": "Run GEO Visibility Audit Actor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const audits = Array.isArray($json) ? $json : [$json];\nconst cleaned = audits.filter(Boolean);\nconst total = cleaned.length;\nconst averageScore = total ? Math.round(cleaned.reduce((sum, audit) => sum + (audit.score || 0), 0) / total) : 0;\nconst weakPages = cleaned.filter((audit) => (audit.score || 0) < 70).map((audit) => ({ url: audit.url, score: audit.score, grade: audit.grade }));\nconst topFixes = cleaned.flatMap((audit) => (audit.fixes || []).slice(0, 3).map((fix) => ({ url: audit.url, ...fix }))).slice(0, 10);\nconst prompts = [...new Set(cleaned.flatMap((audit) => audit.recommendedPrompts || []))].slice(0, 20);\nreturn [{ json: { totalPages: total, averageScore, weakPages, topFixes, recommendedPrompts: prompts, audits: cleaned } }];"
+      },
+      "id": "prepare-report",
+      "name": "Prepare GEO Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "report-title",
+              "name": "reportTitle",
+              "type": "string",
+              "value": "={{'Weekly GEO Visibility Audit - average score ' + $json.averageScore}}"
+            },
+            {
+              "id": "report-summary",
+              "name": "reportSummary",
+              "type": "string",
+              "value": "={{'Audited ' + $json.totalPages + ' pages. Weak pages: ' + $json.weakPages.length + '. Top fix: ' + (($json.topFixes[0] && $json.topFixes[0].action) || 'No urgent fixes found.')}}"
+            },
+            {
+              "id": "recommended-prompts",
+              "name": "recommendedPrompts",
+              "type": "array",
+              "value": "={{$json.recommendedPrompts}}"
+            },
+            {
+              "id": "top-fixes",
+              "name": "topFixes",
+              "type": "array",
+              "value": "={{$json.topFixes}}"
+            }
+          ]
+        }
+      },
+      "id": "final-report",
+      "name": "Final Report Object",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1380,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Audit Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "Audit Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit Input": {
+      "main": [
+        [
+          {
+            "node": "Run GEO Visibility Audit Actor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run GEO Visibility Audit Actor": {
+      "main": [
+        [
+          {
+            "node": "Prepare GEO Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare GEO Report": {
+      "main": [
+        [
+          {
+            "node": "Final Report Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "GEO"
+    },
+    {
+      "name": "Apify"
+    },
+    {
+      "name": "AI Search"
+    }
+  ],
+  "triggerCount": 2
+}
