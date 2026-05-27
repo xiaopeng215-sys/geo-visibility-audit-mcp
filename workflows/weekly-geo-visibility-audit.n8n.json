@@ -2,15 +2,24 @@
   "name": "Weekly GEO Visibility Audit Report with Apify",
   "nodes": [
     {
+      "parameters": {
+        "content": "## Weekly GEO audit review\n\nUse this workflow to turn a list of priority URLs into a weekly GEO fix report.\n\nSetup:\n1. Add `APIFY_TOKEN` to your n8n environment.\n2. Replace the sample brand, competitors, buyer prompts, and page URLs.\n3. Optional: add a Slack incoming webhook URL to send the summary to a channel.\n\nThe workflow validates the input, runs the hosted Apify Actor, ranks weak pages, prepares a Markdown report, and branches urgent audits for notification.",
+        "height": 300,
+        "width": 420
+      },
+      "id": "how-to-use-note",
+      "name": "How to use this template",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [120, 20]
+    },
+    {
       "parameters": {},
       "id": "manual-trigger",
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [
-        260,
-        220
-      ]
+      "position": [220, 360]
     },
     {
       "parameters": {
@@ -18,7 +27,9 @@
           "interval": [
             {
               "field": "weeks",
-              "weeksInterval": 1
+              "weeksInterval": 1,
+              "triggerAtDay": [1],
+              "triggerAtHour": 9
             }
           ]
         }
@@ -27,10 +38,7 @@
       "name": "Weekly Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [
-        260,
-        420
-      ]
+      "position": [220, 560]
     },
     {
       "parameters": {
@@ -60,10 +68,7 @@
               "id": "competitors",
               "name": "competitors",
               "type": "array",
-              "value": [
-                "HubSpot",
-                "Pipedrive"
-              ]
+              "value": ["HubSpot", "Pipedrive", "Zoho CRM"]
             },
             {
               "id": "buyer-prompts",
@@ -72,7 +77,8 @@
               "value": [
                 "best CRM for small marketing agencies",
                 "HubSpot alternatives for agencies",
-                "CRM with client reporting"
+                "CRM with client reporting",
+                "affordable agency CRM with pipeline automation"
               ]
             },
             {
@@ -96,6 +102,18 @@
               "name": "includeRewriteSuggestions",
               "type": "boolean",
               "value": true
+            },
+            {
+              "id": "minimum-score",
+              "name": "minimumHealthyScore",
+              "type": "number",
+              "value": 75
+            },
+            {
+              "id": "slack-webhook-url",
+              "name": "slackWebhookUrl",
+              "type": "string",
+              "value": ""
             }
           ]
         }
@@ -104,10 +122,17 @@
       "name": "Audit Input",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        540,
-        320
-      ]
+      "position": [520, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "const required = ['brandName', 'website', 'category', 'targetAudience'];\nconst missing = required.filter((field) => !$json[field]);\nconst pageUrls = Array.isArray($json.pageUrls) ? $json.pageUrls.filter(Boolean) : [];\nif (!pageUrls.length) missing.push('pageUrls');\nif (!$env.APIFY_TOKEN) missing.push('APIFY_TOKEN environment variable');\nif (missing.length) {\n  throw new Error(`Missing required GEO audit setup: ${missing.join(', ')}`);\n}\nconst payload = {\n  brandName: $json.brandName,\n  website: $json.website,\n  category: $json.category,\n  competitors: Array.isArray($json.competitors) ? $json.competitors : [],\n  buyerPrompts: Array.isArray($json.buyerPrompts) ? $json.buyerPrompts : [],\n  pageUrls,\n  targetAudience: $json.targetAudience,\n  includeRewriteSuggestions: $json.includeRewriteSuggestions !== false\n};\nreturn [{ json: { ...$json, auditPayload: payload, requestedPageCount: pageUrls.length } }];"
+      },
+      "id": "validate-setup",
+      "name": "Validate Setup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 460]
     },
     {
       "parameters": {
@@ -115,7 +140,7 @@
         "url": "={{'https://api.apify.com/v2/acts/jumpy_invoice~geo-visibility-audit-intelligence/run-sync-get-dataset-items?token=' + $env.APIFY_TOKEN}}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{JSON.stringify($json)}}",
+        "jsonBody": "={{JSON.stringify($json.auditPayload)}}",
         "options": {
           "timeout": 120000
         }
@@ -124,23 +149,47 @@
       "name": "Run GEO Visibility Audit Actor",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        820,
-        320
-      ]
+      "position": [1040, 460]
     },
     {
       "parameters": {
-        "jsCode": "const audits = Array.isArray($json) ? $json : [$json];\nconst cleaned = audits.filter(Boolean);\nconst total = cleaned.length;\nconst averageScore = total ? Math.round(cleaned.reduce((sum, audit) => sum + (audit.score || 0), 0) / total) : 0;\nconst weakPages = cleaned.filter((audit) => (audit.score || 0) < 70).map((audit) => ({ url: audit.url, score: audit.score, grade: audit.grade }));\nconst topFixes = cleaned.flatMap((audit) => (audit.fixes || []).slice(0, 3).map((fix) => ({ url: audit.url, ...fix }))).slice(0, 10);\nconst prompts = [...new Set(cleaned.flatMap((audit) => audit.recommendedPrompts || []))].slice(0, 20);\nreturn [{ json: { totalPages: total, averageScore, weakPages, topFixes, recommendedPrompts: prompts, audits: cleaned } }];"
+        "jsCode": "const raw = Array.isArray($json) ? $json : [$json];\nconst audits = raw.flatMap((item) => Array.isArray(item) ? item : [item]).filter(Boolean);\nif (!audits.length) {\n  throw new Error('The Apify Actor returned no audit rows. Check the input URLs and Actor run logs.');\n}\nconst scoreOf = (audit) => Number(audit.score ?? audit.readinessScore ?? audit.geoScore ?? 0);\nconst sorted = audits.map((audit) => ({ ...audit, score: scoreOf(audit) })).sort((a, b) => a.score - b.score);\nconst totalPages = sorted.length;\nconst averageScore = Math.round(sorted.reduce((sum, audit) => sum + audit.score, 0) / totalPages);\nconst minimumHealthyScore = Number($node['Audit Input'].json.minimumHealthyScore || 75);\nconst weakPages = sorted.filter((audit) => audit.score < minimumHealthyScore).map((audit) => ({ url: audit.url || audit.pageUrl || 'unknown URL', score: audit.score, grade: audit.grade || 'n/a' }));\nconst topFixes = sorted.flatMap((audit) => {\n  const fixes = audit.fixes || audit.prioritizedFixes || audit.recommendations || [];\n  return fixes.slice(0, 4).map((fix) => ({\n    url: audit.url || audit.pageUrl || 'unknown URL',\n    score: audit.score,\n    priority: fix.priority || fix.severity || 'review',\n    action: fix.action || fix.title || fix.recommendation || String(fix)\n  }));\n}).slice(0, 12);\nconst promptIdeas = [...new Set(sorted.flatMap((audit) => audit.recommendedPrompts || audit.buyerPrompts || []))].slice(0, 12);\nconst hasCriticalIssues = weakPages.length > 0 || averageScore < minimumHealthyScore;\nconst markdown = [\n  `# Weekly GEO Visibility Audit`,\n  ``,\n  `Brand: ${$node['Audit Input'].json.brandName}`,\n  `Pages audited: ${totalPages}`,\n  `Average score: ${averageScore}`,\n  `Weak pages: ${weakPages.length}`,\n  ``,\n  `## Priority fixes`,\n  ...(topFixes.length ? topFixes.map((fix, index) => `${index + 1}. [${fix.score}] ${fix.url} - ${fix.action}`) : ['No urgent fixes found.']),\n  ``,\n  `## Buyer prompts to test`,\n  ...(promptIdeas.length ? promptIdeas.map((prompt) => `- ${prompt}`) : ['- Add real buyer prompts for your category before the next audit.']),\n  ``,\n  `## Next review`,\n  hasCriticalIssues ? `Review weak pages before publishing new campaign traffic.` : `Scores are healthy. Keep monitoring comparison coverage and third-party proof.`\n].join('\\n');\nreturn [{ json: {\n  totalPages,\n  averageScore,\n  minimumHealthyScore,\n  weakPages,\n  topFixes,\n  promptIdeas,\n  hasCriticalIssues,\n  reportTitle: `Weekly GEO Visibility Audit - ${$node['Audit Input'].json.brandName}`,\n  reportMarkdown: markdown,\n  slackWebhookUrl: $node['Audit Input'].json.slackWebhookUrl || '',\n  slackText: `${hasCriticalIssues ? 'GEO audit needs review' : 'GEO audit is healthy'}: ${$node['Audit Input'].json.brandName} averaged ${averageScore} across ${totalPages} pages. Weak pages: ${weakPages.length}.`,\n  audits: sorted\n} }];"
       },
-      "id": "prepare-report",
-      "name": "Prepare GEO Report",
+      "id": "build-report",
+      "name": "Build Ranked Report",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1100,
-        320
-      ]
+      "position": [1300, 460]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "critical-score-check",
+              "leftValue": "={{$json.hasCriticalIssues}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "needs-review",
+      "name": "Needs Review?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1560, 460]
     },
     {
       "parameters": {
@@ -149,40 +198,168 @@
         "assignments": {
           "assignments": [
             {
-              "id": "report-title",
-              "name": "reportTitle",
+              "id": "status",
+              "name": "status",
               "type": "string",
-              "value": "={{'Weekly GEO Visibility Audit - average score ' + $json.averageScore}}"
+              "value": "needs_review"
             },
             {
-              "id": "report-summary",
-              "name": "reportSummary",
+              "id": "summary",
+              "name": "summary",
               "type": "string",
-              "value": "={{'Audited ' + $json.totalPages + ' pages. Weak pages: ' + $json.weakPages.length + '. Top fix: ' + (($json.topFixes[0] && $json.topFixes[0].action) || 'No urgent fixes found.')}}"
+              "value": "={{'Review ' + $json.weakPages.length + ' weak pages before the next content push.'}}"
             },
             {
-              "id": "recommended-prompts",
-              "name": "recommendedPrompts",
-              "type": "array",
-              "value": "={{$json.recommendedPrompts}}"
+              "id": "report",
+              "name": "reportMarkdown",
+              "type": "string",
+              "value": "={{$json.reportMarkdown}}"
             },
             {
-              "id": "top-fixes",
-              "name": "topFixes",
-              "type": "array",
-              "value": "={{$json.topFixes}}"
+              "id": "slack-webhook-url",
+              "name": "slackWebhookUrl",
+              "type": "string",
+              "value": "={{$json.slackWebhookUrl}}"
+            },
+            {
+              "id": "slack-text",
+              "name": "slackText",
+              "type": "string",
+              "value": "={{$json.slackText}}"
             }
           ]
         }
       },
-      "id": "final-report",
-      "name": "Final Report Object",
+      "id": "priority-review-report",
+      "name": "Priority Review Report",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        1380,
-        320
-      ]
+      "position": [1820, 340]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "healthy"
+            },
+            {
+              "id": "summary",
+              "name": "summary",
+              "type": "string",
+              "value": "={{'No weak pages below ' + $json.minimumHealthyScore + '. Keep monitoring comparison coverage and proof points.'}}"
+            },
+            {
+              "id": "report",
+              "name": "reportMarkdown",
+              "type": "string",
+              "value": "={{$json.reportMarkdown}}"
+            },
+            {
+              "id": "slack-webhook-url",
+              "name": "slackWebhookUrl",
+              "type": "string",
+              "value": "={{$json.slackWebhookUrl}}"
+            },
+            {
+              "id": "slack-text",
+              "name": "slackText",
+              "type": "string",
+              "value": "={{$json.slackText}}"
+            }
+          ]
+        }
+      },
+      "id": "healthy-report",
+      "name": "Healthy Report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1820, 580]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "slack-url-check",
+              "leftValue": "={{$json.slackWebhookUrl}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-slack-webhook",
+      "name": "Has Slack Webhook?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2080, 460]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.slackWebhookUrl}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({ text: $json.slackText + '\\n\\n' + $json.reportMarkdown })}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "send-slack-summary",
+      "name": "Send Slack Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2340, 340]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "delivery",
+              "name": "delivery",
+              "type": "string",
+              "value": "No Slack webhook configured. Use the reportMarkdown output in email, Notion, Airtable, or a client update."
+            },
+            {
+              "id": "report",
+              "name": "reportMarkdown",
+              "type": "string",
+              "value": "={{$json.reportMarkdown}}"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "={{$json.status}}"
+            }
+          ]
+        }
+      },
+      "id": "manual-delivery-output",
+      "name": "Manual Delivery Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2340, 580]
     }
   ],
   "connections": {
@@ -212,6 +389,17 @@
       "main": [
         [
           {
+            "node": "Validate Setup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Setup": {
+      "main": [
+        [
+          {
             "node": "Run GEO Visibility Audit Actor",
             "type": "main",
             "index": 0
@@ -223,18 +411,76 @@
       "main": [
         [
           {
-            "node": "Prepare GEO Report",
+            "node": "Build Ranked Report",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare GEO Report": {
+    "Build Ranked Report": {
       "main": [
         [
           {
-            "node": "Final Report Object",
+            "node": "Needs Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Review?": {
+      "main": [
+        [
+          {
+            "node": "Priority Review Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Healthy Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Priority Review Report": {
+      "main": [
+        [
+          {
+            "node": "Has Slack Webhook?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Healthy Report": {
+      "main": [
+        [
+          {
+            "node": "Has Slack Webhook?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Slack Webhook?": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Manual Delivery Output",
             "type": "main",
             "index": 0
           }
@@ -242,9 +488,11 @@
       ]
     }
   },
+  "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
+  "staticData": null,
   "tags": [
     {
       "name": "GEO"
@@ -253,8 +501,13 @@
       "name": "Apify"
     },
     {
-      "name": "AI Search"
+      "name": "Marketing"
+    },
+    {
+      "name": "Slack"
     }
   ],
-  "triggerCount": 2
+  "triggerCount": 2,
+  "updatedAt": "2026-05-27T00:00:00.000Z",
+  "versionId": "geo-visibility-audit-template-v2"
 }

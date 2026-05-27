@@ -2,27 +2,30 @@
 
 ## Template Name
 
-Weekly GEO Visibility Audit Report with Apify
+Weekly AI Search Fix Report with Apify
 
 ## Short Description
 
-Run a weekly AI-search readiness audit for your brand pages using Apify, then prepare a practical fix report for your team.
+Send your team a weekly report showing which brand pages need clearer answers, schema, comparisons, and proof.
 
 ## Long Description
 
-This n8n workflow helps marketers, founders, and SEO teams monitor whether key brand pages are ready for AI search visibility, especially when classic SEO rankings still look healthy but clicks, mentions, and AI citations feel harder to explain.
+Search reports often tell you what happened last month. This workflow is built for the practical question that comes next: what should the team fix this week so important pages are easier to understand, quote, and compare in AI-assisted search?
 
-The workflow sends your brand, category, competitors, buyer prompts, and page URLs to the hosted `GEO Visibility Audit Intelligence` Apify Actor. The Actor returns page-level GEO readiness scores, entity clarity findings, answer-readiness gaps, schema recommendations, third-party trust gaps, buyer prompt ideas, and prioritized fixes.
+The workflow sends your brand, category, competitors, buyer prompts, and page URLs to the hosted `GEO Visibility Audit Intelligence` Apify Actor. It returns a compact report with weak pages, repeated content gaps, missing schema, thin comparison coverage, missing buyer questions, and proof gaps.
 
-Use this as a lightweight first step before buying a full GEO dashboard or building custom AI visibility tracking. It is designed to produce "what should we fix this week?" output, not just another score.
+Use it as a lightweight weekly check before paying for a full GEO dashboard or building custom monitoring. It is best for teams that need an action list, not another passive score.
 
 ## What It Does
 
 1. Runs on a weekly schedule or manual trigger.
-2. Builds the GEO audit input.
-3. Calls the Apify Actor.
-4. Converts the dataset result into a compact report object.
-5. Leaves the report ready for Slack, email, Notion, Airtable, Google Sheets, or a client update.
+2. Builds the audit input for your brand, competitors, prompts, and pages.
+3. Validates the setup before calling Apify, so missing URLs or tokens fail early.
+4. Calls the Apify Actor.
+5. Converts the dataset result into a ranked Markdown fix report.
+6. Splits healthy audits from pages that need review.
+7. Optionally sends the full report to Slack when a webhook URL is configured.
+8. Leaves a manual delivery output for email, Notion, Airtable, Google Sheets, or a client update.
 
 ## Example Output
 
@@ -80,17 +83,16 @@ Use this as a lightweight first step before buying a full GEO dashboard or build
    - `pageUrls`
    - `targetAudience`
 4. Run manually once.
-5. Connect the final report node to Slack, email, Notion, Airtable, or Google Sheets if desired.
+5. Optional: add a Slack incoming webhook URL in the "Audit Input" node.
+6. Run manually once, then enable the weekly schedule.
+7. Use the final Markdown output in email, Notion, Airtable, Google Sheets, or a client update.
 
-## Monetization Note
+## Hosted Actor
 
-The Apify Actor uses pay-per-event pricing:
+This workflow uses the published Apify Actor:
 
-- Event: `geo-visibility-audit`
-- Price: `$0.03` per audit
-- Pricing effective time: `2026-06-07 22:22` Asia/Shanghai
-- Public URL: https://apify.com/jumpy_invoice/geo-visibility-audit-intelligence
+https://apify.com/jumpy_invoice/geo-visibility-audit-intelligence
 
 ## Tags
 
-n8n, Apify, GEO, AI search, SEO, marketing automation, weekly report, ChatGPT visibility, Google AI Overview
+n8n, Apify, AI search, SEO, marketing automation, weekly report, GEO, content audit, Google AI Overview
