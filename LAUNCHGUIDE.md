@@ -22,22 +22,30 @@ https://apify.com/jumpy_invoice/geo-visibility-audit-intelligence
 
 ## Short Description
 
-Audit pasted HTML for AI-search readiness, entity clarity, answer readiness, schema gaps, buyer prompts, and third-party trust signals.
+Find page fixes that make a brand easier to understand, quote, and compare in AI search results.
 
 ## Long Description
 
-GEO Visibility Audit MCP helps marketers, SEO freelancers, founders, and content teams understand whether their pages are ready to be cited, summarized, and recommended by AI search systems such as ChatGPT, Perplexity, Gemini, Claude, and Google AI Overviews.
+GEO Visibility Audit MCP helps marketers, SEO freelancers, founders, and content teams turn a page into a concrete GEO fix list.
 
-It is built for teams seeing the new SEO pattern: rankings may still look healthy, but AI Overviews, answer engines, and zero-click search make visibility harder to explain. Instead of giving another abstract visibility dashboard, it turns pasted page HTML into specific fixes: clearer entity language, better answer blocks, missing schema, stronger comparison coverage, and third-party trust signals.
+Paste landing page or article HTML and get a practical review of the things answer engines need in order to understand, quote, and compare the brand: entity clarity, answer blocks, schema gaps, FAQ coverage, comparison angles, trust surfaces, and buyer prompts worth testing.
+
+It is useful before a content refresh, client audit, product page rewrite, or GEO sales call. Instead of a vague visibility dashboard, it returns page-level fixes a human can review and act on.
 
 This is a deterministic readiness audit, not a live AI ranking tracker. It does not guarantee rankings, citations, traffic, or revenue.
 
 ## Tools
 
-- `audit_geo_html`: audits one pasted HTML page for GEO and AI-search readiness.
+- `audit_geo_html`: audits one pasted HTML page for GEO readiness.
 - `summarize_geo_audits`: summarizes multiple GEO audit outputs into average score, weak pages, top issues, recommended prompts, and next focus.
 
 ## Install Command
+
+```bash
+npx -y geo-visibility-audit-mcp
+```
+
+GitHub fallback:
 
 ```bash
 npx -y github:xiaopeng215-sys/geo-visibility-audit-mcp

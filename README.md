@@ -1,15 +1,21 @@
 # GEO Visibility Audit MCP
 
-Audit pasted HTML for GEO, AI-search visibility, entity clarity, answer readiness, schema gaps, prompt coverage, and third-party trust signals.
+Find the page fixes that make a brand easier to understand, quote, and compare in AI search results.
 
-This server is useful for marketers, SEO freelancers, SaaS founders, and content teams preparing pages for ChatGPT, Perplexity, Gemini, Claude, Google AI Overviews, and other AI-assisted discovery flows.
+This MCP server turns pasted page HTML into a practical review for marketers, SEO freelancers, SaaS founders, and content teams. It is built for the moment when a page looks fine in classic SEO tools, but still feels hard for answer engines to summarize, compare, or recommend.
 
-It is built for teams seeing the new SEO pattern: rankings may still look healthy, but AI Overviews, answer engines, and zero-click search make visibility harder to explain. The server returns practical page-level fixes instead of a black-box score.
+Use it before a content refresh, client audit, product page rewrite, or GEO sales call. The output is meant to become a fix list, not another dashboard nobody opens.
 
 ## Tools
 
 - `audit_geo_html`: audit one pasted HTML page.
 - `summarize_geo_audits`: summarize multiple GEO audit results.
+
+## Run With npx
+
+```bash
+npx -y geo-visibility-audit-mcp
+```
 
 ## Run From GitHub
 
@@ -49,15 +55,15 @@ npm start
 
 The audit returns:
 
-- AI citation readiness score
-- entity clarity findings
-- answer-readiness gaps
+- page readiness score
+- entity and positioning gaps
+- answer-block opportunities
 - schema recommendations
 - FAQ and comparison coverage gaps
-- third-party trust surface gaps
-- buyer prompt ideas
-- prioritized fix list
-- accuracy caveats
+- off-page trust surfaces to strengthen
+- buyer prompt angles worth testing
+- prioritized rewrite and technical fixes
+- caveats for human review
 
 ## Hosted Batch Version
 
@@ -82,8 +88,8 @@ Use the invoice intake workflow to turn extracted invoice records into a finance
 ## Accuracy Notes
 
 - This is a deterministic readiness audit, not a live AI ranking tracker.
-- Do not claim guaranteed rankings, citations, traffic, or revenue.
-- AI answer inclusion varies by prompt, model, time, location, and personalization.
+- It does not guarantee rankings, citations, traffic, or revenue.
+- AI answer inclusion changes by prompt, model, time, location, and personalization.
 - Treat Reddit, G2, YouTube, directories, reviews, and community mentions as trust surfaces, not spam targets.
 
 ## License

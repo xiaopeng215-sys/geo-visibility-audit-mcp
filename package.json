@@ -1,7 +1,7 @@
 {
   "name": "geo-visibility-audit-mcp",
   "version": "0.1.0",
-  "description": "Standalone MCP server for auditing pasted HTML for GEO and AI-search visibility readiness.",
+  "description": "Find page fixes that make a brand easier to understand, quote, and compare in AI search results.",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -26,17 +26,21 @@
   "bin": {
     "geo-visibility-audit-mcp": "src/server.js"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node src/server.js",
     "lint": "node --check src/server.js && node --check src/geo-audit.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.13.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "cheerio": "^1.1.2"
   },
   "overrides": {
     "file-type": "^22.0.1"
-  },
-  "devDependencies": {}
+  }
 }
